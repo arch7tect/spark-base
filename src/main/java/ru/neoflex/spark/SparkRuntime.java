@@ -13,6 +13,7 @@ public class SparkRuntime {
     private Map<String, SparkJobBase> jobsRegistry = new HashMap<>();
     private Logger logger = LogManager.getLogger(SparkRuntime.class);
     private List<SparkJobBase> jobs = new ArrayList<>();
+    private Map<String, String> params = new HashMap();
 
     public SparkRuntime registerJob(SparkJobBase job) {
         String name = job.getJobName();
@@ -24,19 +25,27 @@ public class SparkRuntime {
     }
 
     private SparkSession.Builder initBuilder(SparkSession.Builder builder) {
+        builder.appName(jobs.get(0).getJobName());
+        if (params.containsKey("master")) {
+            builder.master(params.get("master"));
+        }
+        return builder;
+    }
+
+    private void makeJobs() {
         if (jobs.isEmpty() && jobsRegistry.size() == 1) {
             jobs.add(jobsRegistry.values().stream().findFirst().orElseThrow());
         }
         if (jobs.isEmpty()) {
-            throw new IllegalArgumentException("Job to run not specified");
+            throw new IllegalArgumentException("Job to run is not specified");
         }
-        return builder.appName(jobs.get(0).getJobName());
     }
 
     public void run(String[] args) {
         try {
             registerSparkJobs();
             parseArgs(args);
+            makeJobs();
             var spark = initBuilder(SparkSession.builder()).getOrCreate();
             try {
                 for (var job: jobs) {
@@ -52,6 +61,24 @@ public class SparkRuntime {
     }
 
     private void parseArgs(String[] args) {
+        for (var arg: args) {
+            String[] parts = arg.split("=", 2);
+            if (parts.length == 1) {
+                String jobClass = parts[0];
+                try {
+                    var klass = Class.forName(jobClass);
+                    jobs.add((SparkJobBase) klass.getConstructor().newInstance());
+                } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                    if (!jobsRegistry.containsKey(jobClass)) {
+                        throw new IllegalArgumentException(String.format("Job <%s> not found", jobClass));
+                    }
+                    jobs.add(jobsRegistry.get(jobClass));
+                }
+            }
+            else {
+                params.put(parts[0], parts[1]);
+            }
+        }
     }
 
     private void registerSparkJobs() throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
