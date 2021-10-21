@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 
 public class SparkRuntime {
@@ -29,9 +30,11 @@ public class SparkRuntime {
                 throw new IllegalArgumentException("Job to run is not specified");
             }
             var spark = initBuilder(SparkSession.builder()).getOrCreate();
+            var sc = new JavaSparkContext(spark.sparkContext());
+            var jobParameters = sc.broadcast(params);
             try {
                 for (var job: jobs) {
-                    job.run(spark);
+                    job.run(spark, sc, jobParameters);
                 }
             }
             finally {
