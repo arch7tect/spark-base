@@ -40,8 +40,7 @@ public class SparkJobProcessor extends AbstractProcessor {
             List<Element> others = annotatedMethods.get(false);
             others.forEach(element ->
                     processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                            "@BuilderProperty must be applied to a setXxx method "
-                                    + "with a single argument", element));
+                            "@SparkJob must be applied to a class ", element));
 
             Map<String, List<Element>> registries = classes.stream().collect(
                     Collectors.groupingBy(element -> element.getAnnotation(SparkJob.class).registryClass()));
