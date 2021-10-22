@@ -1,0 +1,10 @@
+
+aPackage(packageName,simpleClassName,elements) ::= <<
+package <packageName>;
+class <simpleClassName> {
+    public static Class\<?>[] CLASSES = {
+        <elements:aClass(); separator=",\n">
+    };
+}>>
+
+aClass(aClass) ::= "<aClass.qualifiedName>.class"
