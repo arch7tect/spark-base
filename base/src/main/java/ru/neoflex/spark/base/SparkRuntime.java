@@ -18,12 +18,8 @@ public class SparkRuntime {
     public SparkRuntime() {
         ServiceLoader<ISparkJob> loader = ServiceLoader.load(ISparkJob.class);
         for (ISparkJob job: loader) {
-            registerJob(job);
+            registry.put(job.getJobName(), job);
         }
-    }
-
-    public void registerJob(ISparkJob job) {
-        registry.put(job.getJobName(), job);
     }
 
     private SparkSession.Builder initBuilder(SparkSession.Builder builder) {
@@ -69,13 +65,19 @@ public class SparkRuntime {
         for (int i = 0; i < args.length; ++i) {
             String arg = args[i];
             if (arg.equals("-m")) {
-                master = args[++i];
+                if (++i >= args.length) {
+                    throw new IllegalArgumentException("Master not specified for option -m");
+                }
+                master = args[i];
             }
             else if (arg.equals("-h")) {
                 hiveSupport = !hiveSupport;
             }
             else if (arg.equals("-p")) {
-                String param =args[++i];
+                if (++i >= args.length) {
+                    throw new IllegalArgumentException("Parameter not specified for option -p");
+                }
+                String param =args[i];
                 String[] parts = param.split("=", 2);
                 if (parts.length != 2) {
                     throw new IllegalArgumentException(String.format("Parameter must be <key=value>, but found <%s>", param));

@@ -29,7 +29,7 @@ public abstract class SparkJobBase implements ISparkJob {
         getLogger().info(String.format(format, args));
     }
 
-    protected String getResource(String path, Object... args) throws URISyntaxException, IOException {
+    protected String getResource(String path) throws URISyntaxException, IOException {
         URL url = this.getClass().getClassLoader().getResource(path);
         Objects.requireNonNull(url, String.format("Resource <%s> not found", path));
         byte[] bytes = Files.readAllBytes(Paths.get(url.toURI()));
