@@ -3,19 +3,24 @@ package ru.neoflex.spark.base;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.SparkSession;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SparkRuntime {
-    private final Logger logger = LogManager.getLogger(SparkRuntime.class);
+    private static final Logger logger = LogManager.getLogger(SparkRuntime.class);
     private final List<ISparkJob> jobs = new ArrayList<>();
     private final Map<String, String> params = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
+    private String master;
+    private Boolean hiveSupport = false;
+
+    public SparkRuntime() {
+        ServiceLoader<ISparkJob> loader = ServiceLoader.load(ISparkJob.class);
+        for (ISparkJob job: loader) {
+            registerJob(job);
+        }
+    }
 
     public void registerJob(ISparkJob job) {
         registry.put(job.getJobName(), job);
@@ -23,8 +28,11 @@ public class SparkRuntime {
 
     private SparkSession.Builder initBuilder(SparkSession.Builder builder) {
         builder.appName(jobs.get(0).getJobName());
-        if (params.containsKey("master")) {
-            builder.master(params.get("master"));
+        if (master != null) {
+            builder.master(master);
+        }
+        if (hiveSupport) {
+            builder.enableHiveSupport();
         }
         return builder;
     }
@@ -41,9 +49,9 @@ public class SparkRuntime {
                 }
             }
             SparkSession spark = initBuilder(SparkSession.builder()).getOrCreate();
-            JavaSparkContext sc = new JavaSparkContext(spark.sparkContext());
-            Broadcast<Map<String, String>> jobParameters = sc.broadcast(params);
             try {
+                JavaSparkContext sc = new JavaSparkContext(spark.sparkContext());
+                Map<String, String> jobParameters = sc.broadcast(params).getValue();
                 for (ISparkJob job: jobs) {
                     logger.info(String.format("Running job <%s>", job.getJobName()));
                     job.run(spark, sc, jobParameters);
@@ -58,18 +66,28 @@ public class SparkRuntime {
     }
 
     private void parseArgs(String[] args) {
-        for (String arg: args) {
-            String[] parts = arg.split("=", 2);
-            if (parts.length == 1) {
-                String jobName = parts[0];
-                ISparkJob job = registry.get(jobName);
-                if (job == null) {
-                    throw new IllegalArgumentException(String.format("Job <%s> not found", jobName));
+        for (int i = 0; i < args.length; ++i) {
+            String arg = args[i];
+            if (arg.equals("-m")) {
+                master = args[++i];
+            }
+            else if (arg.equals("-h")) {
+                hiveSupport = !hiveSupport;
+            }
+            else if (arg.equals("-p")) {
+                String param =args[++i];
+                String[] parts = param.split("=", 2);
+                if (parts.length != 2) {
+                    throw new IllegalArgumentException(String.format("Parameter must be <key=value>, but found <%s>", param));
                 }
-                jobs.add(job);
+                params.put(parts[0], parts[1]);
             }
             else {
-                params.put(parts[0], parts[1]);
+                ISparkJob job = registry.get(arg);
+                if (job == null) {
+                    throw new IllegalArgumentException(String.format("Job <%s> not found", arg));
+                }
+                jobs.add(job);
             }
         }
     }
