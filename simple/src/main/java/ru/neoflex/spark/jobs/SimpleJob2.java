@@ -3,6 +3,7 @@ package ru.neoflex.spark.jobs;
 import com.google.auto.service.AutoService;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.*;
+import org.apache.spark.storage.StorageLevel;
 import ru.neoflex.spark.base.ISparkJob;
 import ru.neoflex.spark.base.SparkJobBase;
 
@@ -19,6 +20,10 @@ public class SimpleJob2 extends SparkJobBase {
         List<Integer> data = IntStream.range(0, 100).boxed().collect(Collectors.toList());
         spark.createDataset(data, Encoders.INT()).coalesce(3).toDF("id").createTempView("is");
         String file = jobParameters.getOrDefault("file", "simple.parquet");
-        spark.sql(getResource("sql/addName.sql")).write().mode(SaveMode.Overwrite).parquet("/data/" + file);
+        String sql = formatResource("sql/addName.sql", jobParameters);
+        Dataset<Row> dfSql = spark.sql(sql);
+        dfSql.persist(StorageLevel.MEMORY_AND_DISK());
+        dfSql.show();
+        dfSql.write().mode(SaveMode.Overwrite).parquet("/data/" + file);
     }
 }
