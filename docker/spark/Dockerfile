@@ -2,7 +2,7 @@ FROM maven:3.6.3-openjdk-8-slim  as builder
 RUN apt-get update && apt-get install -y curl build-essential procps unzip git \
   python3 python3-pip python3-setuptools python3-cloudpickle python3-requests python3-requests-kerberos python3-flake8 python3-flaky python3-pytest r-base
 RUN rm -f /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
-COPY ../bd-base/scripts/ /scripts
+COPY spark/scripts /scripts
 RUN gcc /scripts/watchdir.c -o /scripts/watchdir
 RUN chmod +x /scripts/parallel_commands.sh
 RUn rm -f /scripts/watchdir.c
@@ -80,8 +80,7 @@ ENV LIVY_CONF_DIR $LIVY_HOME/conf
 COPY --from=builder $SPARK_HOME $SPARK_HOME
 COPY --from=builder $LIVY_HOME $LIVY_HOME
 COPY --from=builder /scripts /scripts
-COPY spark/scripts /scripts
-COPY bd-base/extralib /extralib
+COPY extralib /extralib
 
 RUN apt-get update && apt-get install -y curl procps unzip \
   python3 python3-pip python3-setuptools python3-cloudpickle \
