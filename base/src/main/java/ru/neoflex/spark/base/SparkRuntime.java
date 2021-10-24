@@ -11,6 +11,7 @@ public class SparkRuntime {
     private static final Logger logger = LogManager.getLogger(SparkRuntime.class);
     private final List<ISparkJob> jobs = new ArrayList<>();
     private final Map<String, String> params = new HashMap<>();
+    private final Map<String, String> config = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
     private String master;
     private Boolean hiveSupport = false;
@@ -26,6 +27,9 @@ public class SparkRuntime {
         builder.appName(jobs.get(0).getJobName());
         if (master != null) {
             builder.master(master);
+        }
+        for (String key: config.keySet()) {
+            builder.config(key, config.get(key));
         }
         if (hiveSupport) {
             builder.enableHiveSupport();
@@ -83,6 +87,17 @@ public class SparkRuntime {
                     throw new IllegalArgumentException(String.format("Parameter must be <key=value>, but found <%s>", param));
                 }
                 params.put(parts[0], parts[1]);
+            }
+            else if (arg.equals("-c")) {
+                if (++i >= args.length) {
+                    throw new IllegalArgumentException("Config not specified for option -c");
+                }
+                String param =args[i];
+                String[] parts = param.split("=", 2);
+                if (parts.length != 2) {
+                    throw new IllegalArgumentException(String.format("Config must be <key=value>, but found <%s>", param));
+                }
+                config.put(parts[0], parts[1]);
             }
             else {
                 ISparkJob job = registry.get(arg);

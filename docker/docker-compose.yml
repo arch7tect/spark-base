@@ -1,0 +1,44 @@
+version: "3.7"
+services:
+  spark:
+    image: neoflexdatagram/spark
+    build:
+      context: .
+      dockerfile: spark/Dockerfile
+    hostname: livy
+    restart: always
+    environment:
+      SPARK_PUBLIC_DNS: localhost
+      SPARK_WORKER_MEMORY: 8g
+      SPARK_WORKER_CORES: 8
+    env_file: .env
+    expose:
+      - 1-65535
+    ports:
+      # Spark master UI
+      - 8080:8080
+      # Spark master
+      - 7077:7077
+      # Spark history server
+      - 18080:18080
+      # Spark worker UI
+      - 8081:8081
+      # Livy UI
+      - 8998:8998
+      # Thrift Server
+      - 4040:4040
+      - 10000:10000
+    volumes:
+      - ./data:/data
+      - ./extralib:/extralib
+      - ./spark/entrypoint.sh:/entrypoint.sh
+    networks:
+      - spark_net
+
+###
+networks:
+  spark_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.30.0.0/16
