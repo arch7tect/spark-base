@@ -1,6 +1,5 @@
 package ru.neoflex.spark.base;
 
-import org.apache.commons.text.StringSubstitutor;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -11,7 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public abstract class SparkJobBase implements ISparkJob {
-    private Logger logger = LogManager.getLogger(SparkRuntime.class);
+    private Logger logger;
 
     public String getJobName() {
         return this.getClass().getSimpleName();
