@@ -20,7 +20,9 @@ spark-submit simple-1.0-SNAPSHOT-shaded.jar -p file=test -p num=20 SimpleJob2
 ## UI
 Resource|URL
 ------|---
-Spark master UI|http://localhost:8080/
+Spark Master UI|http://localhost:8080/
+Spark Master UI|spark://localhost:7077
 Thrift Server UI|http://localhost:4040/
-Spark history server|http://localhost:18080/
+Thrift Server|jdbc:hive2://localhost:10000
+Spark History Server|http://localhost:18080/
 Livy UI|http://localhost:8998/
