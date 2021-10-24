@@ -14,7 +14,7 @@ mvn clean install
 cp ./simple/target/simple-1.0-SNAPSHOT-shaded.jar ./docker/data
 docker-compose -f docker/docker-compose.yml exec spark sh
 cd /data
-spark-submit simple-1.0-SNAPSHOT-shaded.jar -p file=test -p num=20 SimpleJob2
+spark-submit simple-1.0-SNAPSHOT-shaded.jar -h -p file=test -p num=20 SimpleJob2
 ```
 
 ## UI
