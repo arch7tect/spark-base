@@ -55,16 +55,16 @@ public class Utils {
                 .filter(field -> partitions == null || partitions.stream().noneMatch(p->p.equalsIgnoreCase(field.name())))
                 .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
                 .collect(Collectors.joining(", "));
-        String commentStr = StringUtils.isBlank(comment) ? "" : String.format("COMMENT \"%s\"", comment);
-        String optionsStr = (options == null || options.isEmpty()) ? "" : String.format("OPTIONS (%s)",
+        String commentStr = StringUtils.isBlank(comment) ? "" : String.format(" COMMENT \"%s\"", comment);
+        String optionsStr = (options == null || options.isEmpty()) ? "" : String.format(" OPTIONS (%s)",
                 options.entrySet().stream().map(e -> String.format("'%s': '%s'", e.getKey(), e.getValue()))
                 .collect(Collectors.joining(", ")));
-        String partitionsStr = partitions == null || partitions.size() == 0 ? "" : String.format("PARTITIONED BY (%s)",
+        String partitionsStr = partitions == null || partitions.size() == 0 ? "" : String.format(" PARTITIONED BY (%s)",
                 Arrays.stream(schema.fields())
                 .filter(field -> partitions.stream().anyMatch(p->p.equalsIgnoreCase(field.name())))
                 .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
                 .collect(Collectors.joining(", ")));
-        String createQuery = String.format("CREATE EXTERNAL TABLE %s(%s) %s %s %s STORED AS %s LOCATION '%s'",
+        String createQuery = String.format("CREATE EXTERNAL TABLE %s(%s)%s%s%s STORED AS %s LOCATION '%s'",
                 name, fieldsStr, commentStr, optionsStr, partitionsStr, format, location);
         return createQuery;
     }

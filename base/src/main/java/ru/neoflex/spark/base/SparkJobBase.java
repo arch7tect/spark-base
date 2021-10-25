@@ -8,10 +8,7 @@ import org.apache.spark.sql.types.StructType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public abstract class SparkJobBase implements ISparkJob {
@@ -53,7 +50,8 @@ public abstract class SparkJobBase implements ISparkJob {
                             String comment, String[] partitions, Map<String, String> options) {
         spark.sql(String.format("DROP TABLE IF EXISTS %s", name));
         String createQuery = Utils.createTable(schema, name, format, location, comment,
-                Arrays.stream(partitions).collect(Collectors.toSet()), options);
+                partitions == null ? null : Arrays.stream(partitions).collect(Collectors.toSet()),
+                options);
         info("Creating table:\n%s", createQuery);
         spark.sql(createQuery);
         if (partitions != null && partitions.length > 0) {
