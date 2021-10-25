@@ -26,6 +26,7 @@ Thrift Server UI|http://localhost:4040/
 Thrift Server|jdbc:hive2://localhost:10000
 Spark History Server|http://localhost:18080/
 Livy UI|http://localhost:8998/
+Hue|http://localhost:8888/
 
 # Debug (Windows)
 Get driver host ip:

@@ -71,6 +71,19 @@ services:
     networks:
       - spark_net
 
+  hue:
+    image: gethue/hue:latest
+    hostname: hue
+    container_name: hue
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./hue.ini:/usr/share/hue/desktop/conf/z-hue.ini
+    depends_on:
+      - spark
+    networks:
+      - spark_net
+
 ###
 networks:
   spark_net:
