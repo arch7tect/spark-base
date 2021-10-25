@@ -5,8 +5,10 @@ services:
     build:
       context: .
       dockerfile: spark/Dockerfile
-    hostname: livy
+    hostname: spark-master
     restart: always
+    depends_on:
+      - metastore
     environment:
       SPARK_PUBLIC_DNS: localhost
       SPARK_WORKER_MEMORY: 8g
@@ -32,6 +34,40 @@ services:
       - ./data:/data
       - ./extralib:/extralib
       - ./spark/entrypoint.sh:/entrypoint.sh
+      - warehouse_vol:/data/spark-warehouse
+    networks:
+      - spark_net
+
+  metastore:
+    build:
+      context: .
+      dockerfile: metastore/Dockerfile
+    image: neoflexdatagram/metastore
+    restart: always
+    ports:
+      - 9083:9083
+    depends_on:
+      - postgres
+    volumes:
+      - ./data:/data
+      - warehouse_vol:/warehouse
+    networks:
+      - spark_net
+
+  postgres:
+    image: postgres:11.5
+    restart: always
+    command: postgres -c max_connections=500
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: top_secret
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
+    volumes:
+      - postgres_vol:/var/lib/postgresql/data
     networks:
       - spark_net
 
@@ -42,3 +78,7 @@ networks:
       driver: default
       config:
         - subnet: 10.30.0.0/16
+
+volumes:
+  postgres_vol:
+  warehouse_vol:
