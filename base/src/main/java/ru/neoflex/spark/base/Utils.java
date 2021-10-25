@@ -2,9 +2,6 @@ package ru.neoflex.spark.base;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.StructType;
@@ -53,7 +50,7 @@ public class Utils {
     }
 
     public static String createTable(StructType schema, String name, String format, String location,
-                              Set<String> partitions, String comment, Map<String, String> options) {
+                                     String comment, Set<String> partitions, Map<String, String> options) {
         String fieldsStr = Arrays.stream(schema.fields())
                 .filter(field -> partitions == null || partitions.stream().noneMatch(p->p.equalsIgnoreCase(field.name())))
                 .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))

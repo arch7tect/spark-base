@@ -20,12 +20,12 @@ public class SimpleJob2 extends SparkJobBase {
     public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         List<Integer> data = IntStream.range(0, 100).boxed().collect(Collectors.toList());
         spark.createDataset(data, Encoders.INT()).coalesce(3).toDF("id").createTempView("is");
-        String path = Utils.replace("/data/${file:-simple.parquet}", jobParameters);
         String sql = formatResource("sql/addName.sql", jobParameters);
         Dataset<Row> dfSql = spark.sql(sql);
         dfSql.persist(StorageLevel.MEMORY_AND_DISK());
         dfSql.show();
+        String path = Utils.replace("/data/${file:-simple.parquet}", jobParameters);
         dfSql.write().mode(SaveMode.Overwrite).parquet(path);
-        createTable(spark, dfSql.schema(), "SIMPLE", "PARQUET", path, null, "Simple table", null);
+        createTable(spark, dfSql.schema(), "SIMPLE", "PARQUET", path, "Simple table", null, null);
     }
 }

@@ -48,9 +48,9 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     public void createTable(SparkSession spark, StructType schema, String name, String format, String location,
-                            Set<String> partitions, String comment, Map<String, String> options) {
+                            String comment, Set<String> partitions, Map<String, String> options) {
         spark.sql(String.format("DROP TABLE IF EXISTS %s", name));
-        String createQuery = Utils.createTable(schema, name, format, location, partitions, comment, options);
+        String createQuery = Utils.createTable(schema, name, format, location, comment, partitions, options);
         info("Creating table:\n%s", createQuery);
         spark.sql(createQuery);
         if (partitions != null && partitions.size() > 0) {
