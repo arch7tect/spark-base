@@ -26,8 +26,9 @@ public class SimpleJob2 extends SparkJobBase {
         dfSql.persist(StorageLevel.MEMORY_AND_DISK());
         dfSql.show();
         String path = Utils.replace("/data/${file:-simple.parquet}", jobParameters);
-        dfSql.write().partitionBy("name").mode(SaveMode.Overwrite).parquet(path);
+        String[] partitions = new String[] {"name"};
+        dfSql.write().partitionBy(partitions).mode(SaveMode.Overwrite).parquet(path);
         createTable(spark, dfSql.schema(), "SIMPLE", "PARQUET", path, "Simple table",
-                Arrays.stream(new String[] {"name"}).collect(Collectors.toSet()), null);
+                partitions, null);
     }
 }

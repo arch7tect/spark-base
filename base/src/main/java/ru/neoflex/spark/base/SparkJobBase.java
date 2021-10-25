@@ -8,9 +8,11 @@ import org.apache.spark.sql.types.StructType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public abstract class SparkJobBase implements ISparkJob {
     private Logger logger;
@@ -48,12 +50,13 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     public void createTable(SparkSession spark, StructType schema, String name, String format, String location,
-                            String comment, Set<String> partitions, Map<String, String> options) {
+                            String comment, String[] partitions, Map<String, String> options) {
         spark.sql(String.format("DROP TABLE IF EXISTS %s", name));
-        String createQuery = Utils.createTable(schema, name, format, location, comment, partitions, options);
+        String createQuery = Utils.createTable(schema, name, format, location, comment,
+                Arrays.stream(partitions).collect(Collectors.toSet()), options);
         info("Creating table:\n%s", createQuery);
         spark.sql(createQuery);
-        if (partitions != null && partitions.size() > 0) {
+        if (partitions != null && partitions.length > 0) {
             spark.sql(String.format("MSCK REPAIR TABLE %s", name));
         }
     }
