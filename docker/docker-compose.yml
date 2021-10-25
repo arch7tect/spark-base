@@ -13,7 +13,7 @@ services:
       SPARK_PUBLIC_DNS: localhost
       SPARK_WORKER_MEMORY: 8g
       SPARK_WORKER_CORES: 8
-    env_file: .env
+    env_file: spark.env
     expose:
       - 1-65535
     ports:
