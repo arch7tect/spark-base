@@ -21,7 +21,7 @@ spark-submit simple-1.0-SNAPSHOT-shaded.jar -h -p file=test -p num=20 SimpleJob2
 Resource|URL
 ------|---
 Spark Master UI|http://localhost:8080/
-Spark Master UI|spark://localhost:7077
+Spark Master|spark://localhost:7077
 Thrift Server UI|http://localhost:4040/
 Thrift Server|jdbc:hive2://localhost:10000
 Spark History Server|http://localhost:18080/
