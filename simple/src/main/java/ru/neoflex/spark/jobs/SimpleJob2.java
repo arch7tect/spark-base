@@ -8,6 +8,7 @@ import ru.neoflex.spark.base.ISparkJob;
 import ru.neoflex.spark.base.SparkJobBase;
 import ru.neoflex.spark.base.Utils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,7 +26,8 @@ public class SimpleJob2 extends SparkJobBase {
         dfSql.persist(StorageLevel.MEMORY_AND_DISK());
         dfSql.show();
         String path = Utils.replace("/data/${file:-simple.parquet}", jobParameters);
-        dfSql.write().mode(SaveMode.Overwrite).parquet(path);
-        createTable(spark, dfSql.schema(), "SIMPLE", "PARQUET", path, "Simple table", null, null);
+        dfSql.write().partitionBy("name").mode(SaveMode.Overwrite).parquet(path);
+        createTable(spark, dfSql.schema(), "SIMPLE", "PARQUET", path, "Simple table",
+                Arrays.stream(new String[] {"name"}).collect(Collectors.toSet()), null);
     }
 }
