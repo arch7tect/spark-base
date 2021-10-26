@@ -34,7 +34,6 @@ services:
       - ./extralib:/extralib
       - ./spark/entrypoint.sh:/entrypoint.sh
       - ./data:/data
-      - warehouse_vol:/warehouse
     networks:
       - spark_net
 
@@ -50,7 +49,7 @@ services:
       - postgres
     volumes:
       - ./data:/data
-      - warehouse_vol:/warehouse
+      - ./data/warehouse:/warehouse
     networks:
       - spark_net
 
@@ -94,4 +93,3 @@ networks:
 
 volumes:
   postgres_vol:
-  warehouse_vol:

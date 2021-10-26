@@ -36,5 +36,5 @@ Image Tag: openjdk:8-jdk-slim
 Run Options: --rm --network=docker_spark_net  --volume=C:\Users\<User>\github\spark-base\docker\data:/data
 Build&Run: java8 -cp simple ru.neoflex.spark.base.Main 
 (Add dependencies with the 'provided' scope to classpath)
-Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.catalogImplementation=hive -p file=test -p num=20 SimpleJob2
+Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.warehouse.dir=file:/data/warehouse -p file=test -p num=20 SimpleJob2
 ```
