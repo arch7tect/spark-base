@@ -29,21 +29,11 @@ Livy UI|http://localhost:8998/
 Hue|http://localhost:8888/
 
 # Debug (Windows)
-Get driver host ip:
-```shell
-ipconfig | findstr IPv4
-IPv4 Address. . . . . . . . . . . : 192.168.0.110
-```
 Run parameters:
 ```shell
--m spark://localhost:7077 -h -c spark.driver.host=192.168.0.110 -c spark.sql.catalogImplementation=hive -h -p file=test -p num=20 SimpleJob2
-```
-Winutils:
-```shell
-cd ~
-git clone https://github.com/kontext-tech/winutils.git
-```
-Environments:
-```shell
-HADOOP_HOME=C:\Users\<user>\winutils\hadoop-3.2.0;PATH=C:\Users\<user>\winutils\hadoop-3.2.0\bin
+Run on: docker
+Image Tags: openjdk:8
+Run Options: --rm --network=docker_spark_net  --volume=C:\Users\<User>\github\spark-base\docker\data:/data
+Build&Run: java8 -cp simple ru.neoflex.spark.base.Main
+Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.catalogImplementation=hive -p file=test -p num=20 SimpleJob2
 ```

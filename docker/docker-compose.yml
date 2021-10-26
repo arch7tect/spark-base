@@ -31,10 +31,10 @@ services:
       - 4040:4040
       - 10000:10000
     volumes:
-      - ./data:/data
       - ./extralib:/extralib
       - ./spark/entrypoint.sh:/entrypoint.sh
-      - warehouse_vol:/data/spark-warehouse
+      - ./data:/data
+      - warehouse_vol:/warehouse
     networks:
       - spark_net
 
