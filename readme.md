@@ -28,12 +28,13 @@ Spark History Server|http://localhost:18080/
 Livy UI|http://localhost:8998/
 Hue|http://localhost:8888/
 
-# Debug (Windows)
-Run parameters:
+# Debug (Idea)
+Edit Run/Debug configuration->Application:
 ```shell
 Run on: docker
 Image Tags: openjdk:8
 Run Options: --rm --network=docker_spark_net  --volume=C:\Users\<User>\github\spark-base\docker\data:/data
-Build&Run: java8 -cp simple ru.neoflex.spark.base.Main
+Build&Run: java8 -cp simple ru.neoflex.spark.base.Main 
+(Add dependencies with the 'provided' scope to classpath)
 Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.catalogImplementation=hive -p file=test -p num=20 SimpleJob2
 ```
