@@ -32,7 +32,7 @@ Hue|http://localhost:8888/
 Edit Run/Debug configuration->Application:
 ```shell
 Run on: docker
-Image Tags: openjdk:8
+Image Tag: openjdk:8-jdk-slim
 Run Options: --rm --network=docker_spark_net  --volume=C:\Users\<User>\github\spark-base\docker\data:/data
 Build&Run: java8 -cp simple ru.neoflex.spark.base.Main 
 (Add dependencies with the 'provided' scope to classpath)
