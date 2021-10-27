@@ -33,7 +33,8 @@ services:
     volumes:
       - ./extralib:/extralib
       - ./spark/entrypoint.sh:/entrypoint.sh
-      - ./data:/data
+      - data_vol:/data
+      - spark_logs_vol:/usr/spark/spark-logs
     networks:
       - spark_net
 
@@ -48,8 +49,7 @@ services:
     depends_on:
       - postgres
     volumes:
-      - ./data:/data
-#      - ./data/warehouse:/warehouse
+      - data_vol:/data
     networks:
       - spark_net
 
@@ -93,3 +93,5 @@ networks:
 
 volumes:
   postgres_vol:
+  spark_logs_vol:
+  data_vol:
