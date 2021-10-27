@@ -49,7 +49,7 @@ services:
       - postgres
     volumes:
       - ./data:/data
-      - ./data/warehouse:/warehouse
+#      - ./data/warehouse:/warehouse
     networks:
       - spark_net
 
