@@ -17,7 +17,7 @@ cd /data
 spark-submit simple-1.0-SNAPSHOT-shaded.jar -h -p file=test -p num=20 SimpleJob2
 ```
 
-## URLS
+## URLs
 Resource|URL
 ------|---
 Spark Master UI|http://localhost:8080/

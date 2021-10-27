@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 public class SaveAsTableJob extends SparkJobBase {
 
     protected Dataset<Row> createIDs(SparkSession spark, int from, int to) {
-        List<Integer> data = IntStream.range(0, 100).boxed().collect(Collectors.toList());
+        List<Integer> data = IntStream.range(from, to).boxed().collect(Collectors.toList());
         return spark.createDataset(data, Encoders.INT()).toDF("id");
     }
 
