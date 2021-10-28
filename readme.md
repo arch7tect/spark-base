@@ -1,5 +1,5 @@
 ## Requirements (Windows)
-- Docker desktop
+- Docker desktop (on WSL2)
 - git
 - mvn
 
