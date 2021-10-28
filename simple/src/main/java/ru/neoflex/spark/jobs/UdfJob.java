@@ -2,6 +2,7 @@ package ru.neoflex.spark.jobs;
 
 import com.google.auto.service.AutoService;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.api.java.UDF0;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
@@ -22,6 +23,7 @@ public class UdfJob extends SparkJobBase implements Serializable {
         r.asNondeterministic();
         spark.udf().register("r", r);
 
-        spark.range(5000).selectExpr("id", "uuid() as uuid", "r() as r").write().saveAsTable("random");
+        spark.range(5000).selectExpr("id", "uuid() as uuid", "r() as r")
+                .write().mode(SaveMode.Overwrite).saveAsTable("random");
     }
 }
