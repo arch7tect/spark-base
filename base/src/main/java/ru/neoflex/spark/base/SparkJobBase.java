@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public abstract class SparkJobBase implements ISparkJob {
     private Logger logger;
@@ -36,12 +37,15 @@ public abstract class SparkJobBase implements ISparkJob {
         }
     }
 
-    protected String formatResource(String path, Object... args) throws URISyntaxException, IOException {
-        String format = getResource(path);
-        return String.format(format, args);
+    protected String formatResource(String path, Object... args) throws IOException {
+        if(args.length % 2 == 1)
+            throw new IllegalArgumentException("Args length must be even");
+        Map<String, String> params =  IntStream.range(0, args.length/2).map(i -> i*2)
+                .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);        String format = getResource(path);
+        return formatResource(path, params);
     }
 
-    protected String formatResource(String path, Map<String, String> params) throws URISyntaxException, IOException {
+    protected String formatResource(String path, Map<String, String> params) throws IOException {
         String format = getResource(path);
         return Utils.replace(format, params);
     }
