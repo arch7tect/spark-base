@@ -80,7 +80,7 @@ public class SparkRuntime {
         FileSystem fs = FileSystem.get(sc.hadoopConfiguration());
         for (String propertyFile: propertyFiles) {
             logger.info(String.format("Load parameters from file <%s>", propertyFile));
-            try (FSDataInputStream is = fs.open(new Path(propertyFile));) {
+            try (FSDataInputStream is = fs.open(new Path(propertyFile))) {
                 Properties props = new Properties();
                 props.load(is);
                 for (String key: props.stringPropertyNames()) {
