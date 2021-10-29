@@ -7,13 +7,15 @@ import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public abstract class SparkJobBase implements ISparkJob {
-    private Logger logger;
+    private transient Logger logger;
 
     public String getJobName() {
         return this.getClass().getSimpleName();

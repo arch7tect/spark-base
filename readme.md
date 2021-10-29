@@ -36,7 +36,7 @@ Image Tag: openjdk:8-jdk-slim
 Run Options: --rm --network=docker_spark_net  --volume=docker_data_vol:/data  --volume=docker_spark_logs_vol:/usr/spark/spark-logs
 Build&Run: java8 -cp simple ru.neoflex.spark.base.Main 
 (Add dependencies with the 'provided' scope to classpath)
-Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.warehouse.dir=file:/data/warehouse -c spark.eventLog.enabled=true -c spark.eventLog.dir=file:/usr/spark/spark-logs -p file=test -p num=20 SimpleJob2
+Args: -m spark://spark-master:7077 -h -c spark.hive.metastore.uris=thrift://metastore:9083 -c spark.sql.warehouse.dir=file:/data/warehouse -c spark.eventLog.enabled=true -c spark.eventLog.dir=file:/usr/spark/spark-logs -c spark.jars=simple/target/simple-1.0-SNAPSHOT-shaded.jar -p file=test -p num=20 SimpleJob2
 ```
 Path to data volumes
 ```shell
