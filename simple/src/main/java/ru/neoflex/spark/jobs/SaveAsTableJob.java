@@ -23,15 +23,15 @@ public class SaveAsTableJob extends SparkJobBase {
         spark.range(10000000).createOrReplaceTempView("t1");
         String sql1 = formatResource("sql/addName.sql", "tempTable", "t1");
         spark.sql(sql1)
-                .repartition(100, expr("pmod(hash(id), 100)")).write().mode(SaveMode.Overwrite)
-                .bucketBy(100, "id").sortBy("id").saveAsTable("names_b1");
+                .repartition(50, expr("pmod(hash(id), 50)")).write().mode(SaveMode.Overwrite)
+                .bucketBy(50, "id").sortBy("id").saveAsTable("names_b1");
         Dataset<Row> df1 = spark.table("names_b1");
 
         spark.range(10000000).createOrReplaceTempView("t2");
         String sql2 = formatResource("sql/addName.sql", "tempTable", "t2");
         spark.sql(sql2)
-                .repartition(100, col("id")).write().mode(SaveMode.Overwrite)
-                .bucketBy(100, "id").sortBy("id").saveAsTable("names_b2");
+                .repartition(50, col("id")).write().mode(SaveMode.Overwrite)
+                .bucketBy(50, "id").sortBy("id").saveAsTable("names_b2");
         Dataset<Row> df2 = spark.table("names_b2");
 
         Dataset<Row> dfJoined = df1.join(df2, df1.col("id").$eq$eq$eq(df2.col("id")), "inner").
