@@ -8,6 +8,7 @@ import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
 import ru.neoflex.spark.base.ISparkJob;
 import ru.neoflex.spark.base.SparkJobBase;
+import static org.apache.spark.sql.functions.*;
 
 import java.util.Map;
 
@@ -19,15 +20,17 @@ public class SaveAsTableJob extends SparkJobBase {
         info("bucketingEnabled: %b", spark.sessionState().conf().bucketingEnabled());
         //spark.conf().set("spark.sql.autoBroadcastJoinThreshold", -1);
 
-        spark.range(5000000).createOrReplaceTempView("t1");
+        spark.range(10000000).createOrReplaceTempView("t1");
         String sql1 = formatResource("sql/addName.sql", "tempTable", "t1");
-        spark.sql(sql1).orderBy("uuid").write().mode(SaveMode.Overwrite)
+        spark.sql(sql1)
+                .repartition(100, expr("pmod(hash(id), 100)")).write().mode(SaveMode.Overwrite)
                 .bucketBy(100, "id").sortBy("id").saveAsTable("names_b1");
         Dataset<Row> df1 = spark.table("names_b1");
 
-        spark.range(5000000).createOrReplaceTempView("t2");
+        spark.range(10000000).createOrReplaceTempView("t2");
         String sql2 = formatResource("sql/addName.sql", "tempTable", "t2");
-        spark.sql(sql2).orderBy("uuid").write().mode(SaveMode.Overwrite)
+        spark.sql(sql2)
+                .repartition(100, col("id")).write().mode(SaveMode.Overwrite)
                 .bucketBy(100, "id").sortBy("id").saveAsTable("names_b2");
         Dataset<Row> df2 = spark.table("names_b2");
 
