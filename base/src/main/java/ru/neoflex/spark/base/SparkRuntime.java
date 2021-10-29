@@ -1,15 +1,21 @@
 package ru.neoflex.spark.base;
 
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.Path;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 
+import org.apache.hadoop.fs.FileSystem;
+
+import java.io.IOException;
 import java.util.*;
 
 public class SparkRuntime {
     private static final Logger logger = LogManager.getLogger(SparkRuntime.class);
     private final List<ISparkJob> jobs = new ArrayList<>();
+    private final List<String> propertyFiles = new ArrayList<>();
     private final Map<String, String> params = new HashMap<>();
     private final Map<String, String> config = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
@@ -51,7 +57,12 @@ public class SparkRuntime {
             SparkSession spark = initBuilder(SparkSession.builder()).getOrCreate();
             try {
                 JavaSparkContext sc = new JavaSparkContext(spark.sparkContext());
-                Map<String, String> jobParameters = sc.broadcast(params).getValue();
+                Map<String, String> paramsEffective = new HashMap<>();
+                if (!propertyFiles.isEmpty()) {
+                    readParamsFromFiles(sc, paramsEffective);
+                }
+                paramsEffective.putAll(params);
+                Map<String, String> jobParameters = sc.broadcast(paramsEffective).getValue();
                 for (ISparkJob job: jobs) {
                     logger.info(String.format("Running job <%s>", job.getJobName()));
                     job.run(spark, sc, jobParameters);
@@ -62,6 +73,20 @@ public class SparkRuntime {
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void readParamsFromFiles(JavaSparkContext sc, Map<String, String> paramsEffective) throws IOException {
+        FileSystem fs = FileSystem.get(sc.hadoopConfiguration());
+        for (String propertyFile: propertyFiles) {
+            logger.info(String.format("Load parameters from file <%s>", propertyFile));
+            try (FSDataInputStream is = fs.open(new Path(propertyFile));) {
+                Properties props = new Properties();
+                props.load(is);
+                for (String key: props.stringPropertyNames()) {
+                    paramsEffective.put(key, props.getProperty(key));
+                }
+            }
         }
     }
 
@@ -98,6 +123,12 @@ public class SparkRuntime {
                     throw new IllegalArgumentException(String.format("Config must be <key=value>, but found <%s>", param));
                 }
                 config.put(parts[0], parts[1]);
+            }
+            else if (arg.equals("-f")) {
+                if (++i >= args.length) {
+                    throw new IllegalArgumentException("Properties file not specified for option -f");
+                }
+                propertyFiles.add(args[i]);
             }
             else {
                 ISparkJob job = registry.get(arg);
