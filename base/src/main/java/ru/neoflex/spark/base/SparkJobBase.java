@@ -52,10 +52,10 @@ public abstract class SparkJobBase implements ISparkJob {
         return Utils.replace(format, params);
     }
 
-    public void createTable(SparkSession spark, StructType schema, String name, String format, String location,
-                            String comment, String[] partitions, Map<String, String> options) {
+    public void createEternalTable(SparkSession spark, StructType schema, String name, String format, String location,
+                                   String comment, String[] partitions, Map<String, String> options) {
         spark.sql(String.format("DROP TABLE IF EXISTS %s", name));
-        String createQuery = Utils.createTable(schema, name, format, location, comment,
+        String createQuery = Utils.createExternalTable(schema, name, format, location, comment,
                 partitions == null ? null : Arrays.stream(partitions).collect(Collectors.toSet()),
                 options);
         info("Creating table:\n%s", createQuery);

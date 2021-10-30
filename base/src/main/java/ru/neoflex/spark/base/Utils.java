@@ -49,8 +49,8 @@ public class Utils {
         }
     }
 
-    public static String createTable(StructType schema, String name, String format, String location,
-                                     String comment, Set<String> partitions, Map<String, String> options) {
+    public static String createExternalTable(StructType schema, String name, String format, String location,
+                                             String comment, Set<String> partitions, Map<String, String> options) {
         String fieldsStr = Arrays.stream(schema.fields())
                 .filter(field -> partitions == null || partitions.stream().noneMatch(p->p.equalsIgnoreCase(field.name())))
                 .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
@@ -64,8 +64,10 @@ public class Utils {
                 .filter(field -> partitions.stream().anyMatch(p->p.equalsIgnoreCase(field.name())))
                 .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
                 .collect(Collectors.joining(", ")));
-        String createQuery = String.format("CREATE EXTERNAL TABLE %s(%s)%s%s%s STORED AS %s LOCATION '%s'",
-                name, fieldsStr, commentStr, optionsStr, partitionsStr, format, location);
+        String formatStr = StringUtils.isBlank(format) ? "" : String.format(" STORED AS %s", format);
+        String locationStr = StringUtils.isBlank(location) ? "" : String.format(" LOCATION '%s'", location);
+        String createQuery = String.format("CREATE EXTERNAL TABLE %s(%s)%s%s%s%s%s",
+                name, fieldsStr, commentStr, optionsStr, partitionsStr, formatStr, locationStr);
         return createQuery;
     }
 }
