@@ -4,14 +4,14 @@
 - mvn
 
 
-## Run
+## Run (in PowerShell)
 ```shell
 git clone https://github.com/arch7tect/spark-base.git
 cd spark-base
 docker-compose -f docker/docker-compose.yml pull
 docker-compose -f docker/docker-compose.yml up -d
 mvn clean install
-cp ./simple/target/simple-1.0-SNAPSHOT-shaded.jar \\wsl$\docker-desktop-data\version-pack-data\community\docker\volumes\docker_data_vol\_data
+docker run --rm -v ${PWD}:/here -v docker_data_vol:/data openjdk:8-jdk-slim cp /here/simple/target/simple-1.0-SNAPSHOT-shaded.jar /data
 docker-compose -f docker/docker-compose.yml exec spark sh
 cd /data
 spark-submit simple-1.0-SNAPSHOT-shaded.jar -h -p file=test -p num=20 SimpleJob2
