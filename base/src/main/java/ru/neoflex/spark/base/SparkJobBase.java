@@ -2,7 +2,7 @@ package ru.neoflex.spark.base;
 
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
@@ -63,5 +63,16 @@ public abstract class SparkJobBase implements ISparkJob {
         if (partitions != null && partitions.length > 0) {
             spark.sql(String.format("MSCK REPAIR TABLE %s", name));
         }
+    }
+
+    public void saveAsExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
+                                    String comment, String[] partitions) {
+        DataFrameWriter<Row> dfw = df.write().mode(SaveMode.Overwrite);
+        if (partitions != null && partitions.length > 0) {
+            dfw = dfw.partitionBy(partitions);
+        }
+        dfw.parquet(location);
+        createEternalTable(spark, df.schema(), name, "PARQUET", location, comment, partitions, null);
+
     }
 }
