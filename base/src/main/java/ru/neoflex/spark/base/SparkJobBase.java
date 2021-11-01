@@ -1,5 +1,8 @@
 package ru.neoflex.spark.base;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.spark.sql.*;
@@ -7,10 +10,7 @@ import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -83,5 +83,17 @@ public abstract class SparkJobBase implements ISparkJob {
         }
         dfw.parquet(location);
         createEternalTable(spark, df.schema(), name, "PARQUET", location, comment, partitions, null);
+    }
+
+    public void dropExternalTable(SparkSession spark, String name) throws IOException {
+        List<Row> rows = spark.sql(String.format("DESCRIBE TABLE EXTENDED %s", name)).collectAsList();
+        Map<String, String> props = rows.stream().collect(Collectors.toMap(r -> r.getString(0), r -> r.getString(1)));
+        boolean external = "EXTERNAL".equals(props.get("Type"));
+        String location = props.get("Location");
+        spark.sql(String.format("DROP TABLE %s", name));
+        if (external && !StringUtils.isBlank(location)) {
+            FileSystem fs = FileSystem.get(spark.sparkContext().hadoopConfiguration());
+            fs.delete(new Path(location), true);
+        }
     }
 }
