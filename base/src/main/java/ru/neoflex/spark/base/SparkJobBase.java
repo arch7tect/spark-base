@@ -66,13 +66,22 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     public void saveAsExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
-                                    String comment, String[] partitions) {
-        DataFrameWriter<Row> dfw = df.write().mode(SaveMode.Overwrite);
+                                    String[] partitions, String comment) {
+        writeToExternalTable(spark, df, SaveMode.Overwrite, name, location, partitions, comment);
+    }
+
+    public void appendToExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
+                                      String[] partitions, String comment) {
+        writeToExternalTable(spark, df, SaveMode.Append, name, location, partitions, comment);
+    }
+
+    public void writeToExternalTable(SparkSession spark, Dataset<Row> df, SaveMode saveMode, String name, String location,
+                                     String[] partitions, String comment) {
+        DataFrameWriter<Row> dfw = df.write().mode(saveMode);
         if (partitions != null && partitions.length > 0) {
             dfw = dfw.partitionBy(partitions);
         }
         dfw.parquet(location);
         createEternalTable(spark, df.schema(), name, "PARQUET", location, comment, partitions, null);
-
     }
 }

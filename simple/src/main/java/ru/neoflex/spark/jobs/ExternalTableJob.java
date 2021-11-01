@@ -33,7 +33,7 @@ public class ExternalTableJob extends SparkJobBase {
 
         Dataset<Row> dfJoined = df1.as("n1").join(df2.as("n2"), expr("n1.id=n2.id"), "inner").
                 selectExpr("n1.id", "n1.uuid", "n2.name", "n2.description");
-        saveAsExternalTable(spark, dfJoined, "names_joined_ext", "/data/names_joined", null,
-                new String[] {"name"});
+        saveAsExternalTable(spark, dfJoined, "names_joined_ext", "/data/names_joined", new String[] {"name"}, null
+        );
     }
 }
