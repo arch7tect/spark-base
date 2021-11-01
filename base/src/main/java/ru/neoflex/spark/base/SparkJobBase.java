@@ -52,16 +52,20 @@ public abstract class SparkJobBase implements ISparkJob {
         return Utils.replace(format, params);
     }
 
+    protected Dataset<Row> sql(SparkSession spark, String sql) {
+        info("SQL: %s", sql);
+        return spark.sql(sql);
+    }
+
     public void createEternalTable(SparkSession spark, StructType schema, String name, String format, String location,
                                    String comment, String[] partitions, Map<String, String> options) {
-        spark.sql(String.format("DROP TABLE IF EXISTS %s", name));
+        sql(spark, String.format("DROP TABLE IF EXISTS %s", name));
         String createQuery = Utils.createExternalTable(schema, name, format, location, comment,
                 partitions == null ? null : Arrays.stream(partitions).collect(Collectors.toSet()),
                 options);
-        info("Creating table:\n%s", createQuery);
-        spark.sql(createQuery);
+        sql(spark, createQuery);
         if (partitions != null && partitions.length > 0) {
-            spark.sql(String.format("MSCK REPAIR TABLE %s", name));
+            sql(spark, String.format("MSCK REPAIR TABLE %s", name));
         }
     }
 
@@ -86,13 +90,12 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     public void dropExternalTable(SparkSession spark, String name) throws IOException {
-        List<Row> rows = spark.sql(String.format("DESCRIBE TABLE EXTENDED %s", name)).collectAsList();
+        List<Row> rows = sql(spark, String.format("DESCRIBE TABLE EXTENDED %s", name)).collectAsList();
         Map<String, String> props = rows.stream().collect(Collectors.toMap(r -> r.getString(0), r -> r.getString(1)));
         boolean external = "EXTERNAL".equals(props.get("Type"));
         String location = props.get("Location");
         String dropSql = String.format("DROP TABLE %s", name);
-        info(dropSql);
-        spark.sql(dropSql);
+        sql(spark, dropSql);
         if (external && !StringUtils.isBlank(location)) {
             info("Deleting %s", location);
             FileSystem fs = FileSystem.get(spark.sparkContext().hadoopConfiguration());

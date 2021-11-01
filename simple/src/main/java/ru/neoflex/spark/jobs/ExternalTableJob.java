@@ -20,12 +20,12 @@ public class ExternalTableJob extends SparkJobBase {
     public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         spark.range(10000000).createOrReplaceTempView("t1");
         String sql1 = formatResource("sql/addName.sql", "tempTable", "t1");
-        Dataset<Row> dfSql1 = spark.sql(sql1);
+        Dataset<Row> dfSql1 = sql(spark, sql1);
         saveAsExternalTable(spark, dfSql1, "names_1", "/data/names_1", null, null);
 
         spark.range(10000000).createOrReplaceTempView("t2");
         String sql2 = formatResource("sql/addName.sql", "tempTable", "t2");
-        Dataset<Row> dfSql2 = spark.sql(sql2);
+        Dataset<Row> dfSql2 = sql(spark, sql2);
         saveAsExternalTable(spark, dfSql2, "names_2", "/data/names_2", null, null);
 
         Dataset<Row> df1 = spark.table("names_1").repartition(50, col("id"));
