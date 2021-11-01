@@ -90,8 +90,11 @@ public abstract class SparkJobBase implements ISparkJob {
         Map<String, String> props = rows.stream().collect(Collectors.toMap(r -> r.getString(0), r -> r.getString(1)));
         boolean external = "EXTERNAL".equals(props.get("Type"));
         String location = props.get("Location");
-        spark.sql(String.format("DROP TABLE %s", name));
+        String dropSql = String.format("DROP TABLE %s", name);
+        info(dropSql);
+        spark.sql(dropSql);
         if (external && !StringUtils.isBlank(location)) {
+            info("Deleting %s", location);
             FileSystem fs = FileSystem.get(spark.sparkContext().hadoopConfiguration());
             fs.delete(new Path(location), true);
         }
