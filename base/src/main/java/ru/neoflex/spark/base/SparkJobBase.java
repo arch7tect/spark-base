@@ -43,7 +43,7 @@ public abstract class SparkJobBase implements ISparkJob {
         if(args.length % 2 == 1)
             throw new IllegalArgumentException("Args length must be even");
         Map<String, String> params =  IntStream.range(0, args.length/2).map(i -> i*2)
-                .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);        String format = getResource(path);
+                .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);
         return formatResource(path, params);
     }
 
