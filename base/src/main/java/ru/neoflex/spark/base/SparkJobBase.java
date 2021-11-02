@@ -61,8 +61,7 @@ public abstract class SparkJobBase implements ISparkJob {
                                    String comment, String[] partitions, Map<String, String> options) {
         sql(spark, String.format("DROP TABLE IF EXISTS %s", name));
         String createQuery = Utils.createExternalTable(schema, name, format, location, comment,
-                partitions == null ? null : Arrays.stream(partitions).collect(Collectors.toSet()),
-                options);
+                partitions, options);
         sql(spark, createQuery);
         if (partitions != null && partitions.length > 0) {
             sql(spark, String.format("MSCK REPAIR TABLE %s", name));
