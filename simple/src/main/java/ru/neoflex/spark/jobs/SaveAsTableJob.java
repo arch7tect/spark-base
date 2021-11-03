@@ -17,7 +17,7 @@ public class SaveAsTableJob extends SparkJobBase {
 
     @Override
     public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
-        info("bucketingEnabled: %b", spark.sessionState().conf().bucketingEnabled());
+        info("bucketingEnabled: ${b}", "b", spark.sessionState().conf().bucketingEnabled());
         //spark.conf().set("spark.sql.autoBroadcastJoinThreshold", -1);
 
         spark.range(10000000).createOrReplaceTempView("t1");

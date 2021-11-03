@@ -28,7 +28,11 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     protected void info(String format, Object... args) {
-        getLogger().info(String.format(format, args));
+        getLogger().info(Utils.replace(format, args));
+    }
+
+    protected void info(String format, Map<String, String> params, Object... args) {
+        getLogger().info(Utils.replace(format, params, args));
     }
 
     protected String getResource(String path) throws IOException {
@@ -57,7 +61,7 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     protected Dataset<Row> sql(SparkSession spark, String sql) {
-        info("SQL: %s", sql);
+        info("SQL: ${sql}", "sql", sql);
         return spark.sql(sql);
     }
 
@@ -99,7 +103,7 @@ public abstract class SparkJobBase implements ISparkJob {
         String location = props.get("Location");
         sql(spark, String.format("DROP TABLE %s", name));
         if (external && !StringUtils.isBlank(location)) {
-            info("Deleting %s", location);
+            info("Deleting ${location}", "location", location);
             FileSystem fs = FileSystem.get(spark.sparkContext().hadoopConfiguration());
             fs.delete(new Path(location), true);
         }
