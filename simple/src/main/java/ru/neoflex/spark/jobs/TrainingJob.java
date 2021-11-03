@@ -18,5 +18,7 @@ public class TrainingJob extends SparkJobBase {
         Dataset<Row> ds = spark.table("names_joined_ext");
         ds.show();
         info("Count: %d", ds.count());
+        ds.createOrReplaceTempView("tempView");
+        sql(spark, formatSQL("selectFromView", "view", "tempView")).show();
     }
 }

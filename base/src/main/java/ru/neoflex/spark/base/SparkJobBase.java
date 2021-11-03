@@ -40,11 +40,14 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     protected String formatResource(String path, Object... args) throws IOException {
+        return formatResource(path, getParamsFromArgs(args));
+    }
+
+    private static Map<String, String> getParamsFromArgs(Object[] args) {
         if(args.length % 2 == 1)
             throw new IllegalArgumentException("Args length must be even");
-        Map<String, String> params =  IntStream.range(0, args.length/2).map(i -> i*2)
+        return IntStream.range(0, args.length/2).map(i -> i*2)
                 .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);
-        return formatResource(path, params);
     }
 
     protected String formatResource(String path, Map<String, String> params) throws IOException {
@@ -52,12 +55,21 @@ public abstract class SparkJobBase implements ISparkJob {
         return Utils.replace(format, params);
     }
 
+    protected String formatSQL(String name, Map<String, String> params) throws IOException {
+        String path = String.format("sql/%s/%s.sql", getJobName(), name);
+        return formatResource(path, params);
+    }
+
+    protected String formatSQL(String name, Object... args) throws IOException {
+        return formatSQL(name, getParamsFromArgs(args));
+    }
+
     protected Dataset<Row> sql(SparkSession spark, String sql) {
         info("SQL: %s", sql);
         return spark.sql(sql);
     }
 
-    public void createEternalTable(SparkSession spark, StructType schema, String name, String format, String location,
+    protected void createEternalTable(SparkSession spark, StructType schema, String name, String format, String location,
                                    String comment, String[] partitions, Map<String, String> options) {
         sql(spark, String.format("DROP TABLE IF EXISTS %s", name));
         String createQuery = Utils.createExternalTable(schema, name, format, location, comment,
@@ -68,17 +80,17 @@ public abstract class SparkJobBase implements ISparkJob {
         }
     }
 
-    public void saveAsExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
+    protected void saveAsExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
                                     String[] partitions, String comment) {
         writeToExternalTable(spark, df, SaveMode.Overwrite, name, location, partitions, comment);
     }
 
-    public void appendToExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
+    protected void appendToExternalTable(SparkSession spark, Dataset<Row> df, String name, String location,
                                       String[] partitions, String comment) {
         writeToExternalTable(spark, df, SaveMode.Append, name, location, partitions, comment);
     }
 
-    public void writeToExternalTable(SparkSession spark, Dataset<Row> df, SaveMode saveMode, String name, String location,
+    protected void writeToExternalTable(SparkSession spark, Dataset<Row> df, SaveMode saveMode, String name, String location,
                                      String[] partitions, String comment) {
         DataFrameWriter<Row> dfw = df.write().mode(saveMode);
         if (partitions != null && partitions.length > 0) {
@@ -88,7 +100,7 @@ public abstract class SparkJobBase implements ISparkJob {
         createEternalTable(spark, df.schema(), name, "PARQUET", location, comment, partitions, null);
     }
 
-    public void dropExternalTable(SparkSession spark, String name) throws IOException {
+    protected void dropExternalTable(SparkSession spark, String name) throws IOException {
         List<Row> rows = sql(spark, String.format("DESCRIBE TABLE EXTENDED %s", name)).collectAsList();
         Map<String, String> props = rows.stream().collect(Collectors.toMap(r -> r.getString(0), r -> r.getString(1)));
         boolean external = "EXTERNAL".equals(props.get("Type"));
