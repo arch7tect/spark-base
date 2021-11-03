@@ -12,9 +12,11 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Utils {
     public static String readAsString(InputStream is) throws IOException {
@@ -32,6 +34,16 @@ public class Utils {
         ss.setEnableSubstitutionInVariables(true);
         ss.setEnableUndefinedVariableException(true);
         return ss.replace(text);
+    }
+
+    public static String replace(String text, Object... args) {
+        return replace(text, getParamsFromArgs(args));
+    }
+
+    public static String replace(String text, Map<String, String> params, Object... args) {
+        Map<String, String> paramsEffective = new HashMap<>(params);
+        paramsEffective.putAll(getParamsFromArgs(args));
+        return replace(text, paramsEffective);
     }
 
     private static String getTypeDescription(DataType dataType) {
@@ -68,5 +80,12 @@ public class Utils {
         String locationStr = StringUtils.isBlank(location) ? "" : String.format(" LOCATION '%s'", location);
         return String.format("CREATE EXTERNAL TABLE %s(%s)%s%s%s%s%s",
                 name, fieldsStr, commentStr, optionsStr, partitionsStr, formatStr, locationStr);
+    }
+
+    public static Map<String, String> getParamsFromArgs(Object[] args) {
+        if(args.length % 2 == 1)
+            throw new IllegalArgumentException("Args length must be even");
+        return IntStream.range(0, args.length/2).map(i -> i*2)
+                .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);
     }
 }

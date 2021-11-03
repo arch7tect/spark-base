@@ -7,6 +7,7 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import ru.neoflex.spark.base.ISparkJob;
 import ru.neoflex.spark.base.SparkJobBase;
+import ru.neoflex.spark.base.Utils;
 
 import java.util.Map;
 
@@ -14,7 +15,8 @@ import java.util.Map;
 public class TrainingJob extends SparkJobBase {
     @Override
     public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
-        info("Hello %s from spark %s", jobParameters.get("name"), spark.version());
+        info(Utils.replace("Hello ${name} from spark ${version}",
+                jobParameters, "version", spark.version()));
         Dataset<Row> ds = spark.table("names_joined_ext");
         ds.show();
         info("Count: %d", ds.count());

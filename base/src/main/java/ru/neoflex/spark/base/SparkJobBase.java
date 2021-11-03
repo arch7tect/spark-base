@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public abstract class SparkJobBase implements ISparkJob {
     private transient Logger logger;
@@ -40,14 +39,7 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     protected String formatResource(String path, Object... args) throws IOException {
-        return formatResource(path, getParamsFromArgs(args));
-    }
-
-    private static Map<String, String> getParamsFromArgs(Object[] args) {
-        if(args.length % 2 == 1)
-            throw new IllegalArgumentException("Args length must be even");
-        return IntStream.range(0, args.length/2).map(i -> i*2)
-                .collect(HashMap::new, (m, i) -> m.put(args[i].toString(), args[i + 1].toString()), Map::putAll);
+        return formatResource(path, Utils.getParamsFromArgs(args));
     }
 
     protected String formatResource(String path, Map<String, String> params) throws IOException {
@@ -61,7 +53,7 @@ public abstract class SparkJobBase implements ISparkJob {
     }
 
     protected String formatSQL(String name, Object... args) throws IOException {
-        return formatSQL(name, getParamsFromArgs(args));
+        return formatSQL(name, Utils.getParamsFromArgs(args));
     }
 
     protected Dataset<Row> sql(SparkSession spark, String sql) {
