@@ -30,6 +30,9 @@ public class SparkRuntime {
     }
 
     private SparkSession.Builder initBuilder(SparkSession.Builder builder) {
+        if (jobs.isEmpty()) {
+            throw new IllegalArgumentException("Job to run is not specified");
+        }
         builder.appName(jobs.get(0).getJobName());
         if (master != null) {
             builder.master(master);
@@ -49,9 +52,6 @@ public class SparkRuntime {
             if (jobs.isEmpty()) {
                 if (registry.size() == 1) {
                     jobs.add(registry.values().stream().findFirst().get());
-                }
-                else {
-                    throw new IllegalArgumentException("Job to run is not specified");
                 }
             }
             SparkSession spark = initBuilder(SparkSession.builder()).getOrCreate();
