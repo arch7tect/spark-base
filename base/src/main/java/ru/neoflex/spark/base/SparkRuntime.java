@@ -77,13 +77,14 @@ public class SparkRuntime {
     }
 
     private void readParamsFromFiles(JavaSparkContext sc, Map<String, String> params) throws IOException {
-        FileSystem fs = FileSystem.get(sc.hadoopConfiguration());
-        for (String propertyFile: propertyFiles) {
-            logger.info(String.format("Load parameters from file <%s>", propertyFile));
-            try (FSDataInputStream is = fs.open(new Path(propertyFile))) {
-                Properties props = new Properties();
-                props.load(is);
-                props.forEach((key, value) -> params.put(key.toString(), value.toString()));
+        try (FileSystem fs = FileSystem.get(sc.hadoopConfiguration())) {
+            for (String propertyFile: propertyFiles) {
+                logger.info(String.format("Load parameters from file <%s>", propertyFile));
+                try (FSDataInputStream is = fs.open(new Path(propertyFile))) {
+                    Properties props = new Properties();
+                    props.load(is);
+                    props.forEach((key, value) -> params.put(key.toString(), value.toString()));
+                }
             }
         }
     }
