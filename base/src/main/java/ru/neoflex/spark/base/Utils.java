@@ -11,10 +11,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.rmi.RemoteException;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,6 +25,18 @@ public class Utils {
             out.append(buffer, 0, numRead);
         }
         return out.toString();
+    }
+
+    public static String getResource(ClassLoader cl, String path) {
+        try {
+            try (InputStream is = cl.getResourceAsStream(path)) {
+                Objects.requireNonNull(is, String.format("Resource <%s> not found", path));
+                return Utils.readAsString(is);
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String replace(String text, Map<String, String> params) {
@@ -70,12 +80,12 @@ public class Utils {
         String commentStr = StringUtils.isBlank(comment) ? "" : String.format(" COMMENT \"%s\"", comment);
         String optionsStr = (options == null || options.isEmpty()) ? "" : String.format(" OPTIONS (%s)",
                 options.entrySet().stream().map(e -> String.format("'%s': '%s'", e.getKey(), e.getValue()))
-                .collect(Collectors.joining(", ")));
+                        .collect(Collectors.joining(", ")));
         String partitionsStr = partitions == null || partitions.length == 0 ? "" : String.format(" PARTITIONED BY (%s)",
                 Arrays.stream(schema.fields())
-                .filter(field -> Arrays.stream(partitions).anyMatch(p->p.equalsIgnoreCase(field.name())))
-                .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
-                .collect(Collectors.joining(", ")));
+                        .filter(field -> Arrays.stream(partitions).anyMatch(p->p.equalsIgnoreCase(field.name())))
+                        .map(field -> String.format("%s %s", field.name(), getTypeDescription(field.dataType())))
+                        .collect(Collectors.joining(", ")));
         String formatStr = StringUtils.isBlank(format) ? "" : String.format(" STORED AS %s", format);
         String locationStr = StringUtils.isBlank(location) ? "" : String.format(" LOCATION '%s'", location);
         return String.format("CREATE EXTERNAL TABLE %s(%s)%s%s%s%s%s",
