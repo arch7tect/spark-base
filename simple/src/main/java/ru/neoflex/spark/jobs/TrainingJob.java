@@ -15,12 +15,8 @@ import java.util.Map;
 public class TrainingJob extends SparkJobBase {
     @Override
     public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
-        info("Hello ${name} from spark ${version}",
+        info("Hello from spark ${version}",
                 jobParameters, "version", spark.version());
-        Dataset<Row> ds = spark.table("names_joined_ext");
-        ds.show();
-        info("Count: ${count}", "count", ds.count());
-        ds.createOrReplaceTempView("tempView");
-        sql(spark, formatSQL("selectFromView", "view", "tempView")).show();
+        jobParameters.forEach((k, v) -> info("${key}: ${value}", "key", k, "value", v));
     }
 }
