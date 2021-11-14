@@ -1,0 +1,45 @@
+{
+  "tasks": [
+    {
+      "name": "Start",
+      "type": "Dummy"
+    },
+    {
+      "name": "UDF",
+      "type": "SparkJob",
+      "dependsOn": ["Start"],
+      "onError": "Error",
+      "config": {
+        "jobName": "UdfJob",
+        "params": {
+          "param1": "val1"
+        }
+      }
+    },
+    {
+      "name": "Training",
+      "type": "SparkJob",
+      "dependsOn": ["Start"],
+      "onError": "Error",
+      "config": {
+        "jobName": "TrainingJob",
+        "params": {
+          "param1": "val1"
+        }
+      }
+    },
+    {
+      "name": "End",
+      "type": "Exit",
+      "dependsOn": ["UDF", "Training"]
+    },
+    {
+      "name": "Kill",
+      "type": "Kill",
+      "dependsOn": ["Error"],
+      "config": {
+        "message": "WF Failure"
+      }
+    }
+  ]
+}

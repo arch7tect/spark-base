@@ -35,28 +35,25 @@ public abstract class SparkJobBase implements ISparkJob {
         getLogger().info(Utils.replace(format, params, args));
     }
 
-    protected String getResource(String path) throws IOException {
-        try (InputStream is = this.getClass().getClassLoader().getResourceAsStream(path)) {
-            Objects.requireNonNull(is, String.format("Resource <%s> not found", path));
-            return Utils.readAsString(is);
-        }
+    protected String getResource(String path) {
+        return Utils.getResource(this.getClass().getClassLoader(), path);
     }
 
     protected String formatResource(String path, Object... args) throws IOException {
         return formatResource(path, Utils.getParamsFromArgs(args));
     }
 
-    protected String formatResource(String path, Map<String, String> params) throws IOException {
+    protected String formatResource(String path, Map<String, String> params) {
         String format = getResource(path);
         return Utils.replace(format, params);
     }
 
-    protected String formatSQL(String name, Map<String, String> params) throws IOException {
+    protected String formatSQL(String name, Map<String, String> params) {
         String path = String.format("sql/%s/%s.sql", getJobName(), name);
         return formatResource(path, params);
     }
 
-    protected String formatSQL(String name, Object... args) throws IOException {
+    protected String formatSQL(String name, Object... args) {
         return formatSQL(name, Utils.getParamsFromArgs(args));
     }
 

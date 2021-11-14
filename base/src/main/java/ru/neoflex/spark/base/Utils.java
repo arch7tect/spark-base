@@ -11,10 +11,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.rmi.RemoteException;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,6 +25,18 @@ public class Utils {
             out.append(buffer, 0, numRead);
         }
         return out.toString();
+    }
+
+    public static String getResource(ClassLoader cl, String path) {
+        try {
+            try (InputStream is = cl.getResourceAsStream(path)) {
+                Objects.requireNonNull(is, String.format("Resource <%s> not found", path));
+                return Utils.readAsString(is);
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String replace(String text, Map<String, String> params) {
