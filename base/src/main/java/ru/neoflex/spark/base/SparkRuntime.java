@@ -3,8 +3,6 @@ package ru.neoflex.spark.base;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -12,13 +10,15 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
-import org.json4s.jackson.Json;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class SparkRuntime {
     private static final Logger logger = LogManager.getLogger(SparkRuntime.class);
@@ -27,13 +27,13 @@ public class SparkRuntime {
     private final Map<String, String> params = new HashMap<>();
     private final Map<String, String> config = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
+    private final List<Map<String, Object>> workflows = new ArrayList<>();
     private String master;
     private Boolean hiveSupport = false;
-    private final List<ObjectNode> workflows = new ArrayList<>();
 
     public SparkRuntime() {
         ServiceLoader<ISparkJob> loader = ServiceLoader.load(ISparkJob.class);
-        for (ISparkJob job: loader) {
+        for (ISparkJob job : loader) {
             registry.put(job.getJobName(), job);
         }
     }
@@ -43,7 +43,7 @@ public class SparkRuntime {
         if (master != null) {
             builder.master(master);
         }
-        for (String key: config.keySet()) {
+        for (String key : config.keySet()) {
             builder.config(key, config.get(key));
         }
         if (hiveSupport) {
@@ -56,11 +56,13 @@ public class SparkRuntime {
         try {
             parseArgs(args);
             if (!workflows.isEmpty()) {
-                for (ObjectNode wf: workflows) {
-                    runWorkflow(wf);
-                }
-            }
-            else {
+                String appName = workflows.get(0).getOrDefault("name", "<undefined>").toString();
+                executeInContext(appName, (spark, sc, jobParameters) -> {
+                    for (Map<String, Object> wf : workflows) {
+                        runWorkflow(wf, spark, sc, jobParameters);
+                    }
+                });
+            } else {
                 if (jobs.isEmpty()) {
                     if (registry.size() == 1) {
                         jobs.add(registry.values().stream().findFirst().get());
@@ -70,66 +72,63 @@ public class SparkRuntime {
                     throw new IllegalArgumentException("Job to run is not specified");
                 }
                 String appName = jobs.get(0).getJobName();
-                runJobsInContext(appName, jobs);
+                executeInContext(appName, (spark, sc, jobParameters) -> {
+                    for (ISparkJob job : jobs) {
+                        logger.info(String.format("Running job <%s>", job.getJobName()));
+                        job.run(spark, sc, jobParameters);
+                    }
+                });
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void runWorkflow(ObjectNode wf) {
-        List<JsonNode> tasks = StreamSupport.stream(wf.withArray("tasks").spliterator(), false)
-                .collect(Collectors.toList());
-        while (true) {
-            Set<JsonNode> active = tasks.stream().filter(node->node.withArray("dependsOn").isEmpty())
+    private void runWorkflow(Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
+        String name = wf.getOrDefault("name", "<undefined>").toString();
+        logger.info(String.format("Running workflow <%s>", name));
+        List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
+        tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList())).stream().collect(Collectors.toSet())));
+        ExecutorService service = Executors.newCachedThreadPool();
+        reschedule(service, tasks, null, spark, sc, jobParameters);
+        do {
+            logger.info(String.format("Waiting for workflow <%s> termination", name));
+        } while (service.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
+    private void reschedule(ExecutorService service, List<Map<String, Object>> tasks, String event,
+                            SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
+        synchronized (tasks) {
+            if (event != null) {
+                tasks.forEach(t -> ((Set<String>) t.get("dependsSet")).remove(event));
+            }
+            Set<Map<String, Object>> schedule = tasks.stream()
+                    .filter(t -> ((Set<String>) t.get("dependsSet")).isEmpty())
                     .collect(Collectors.toSet());
-            if (active.isEmpty()) break;
-            List<JsonNode> newTasks = tasks.stream().filter(node->!active.contains(node)).collect(Collectors.toList());
-            Consumer<String> result = (event)->{
-                synchronized (newTasks) {
-                    newTasks.forEach(t->{
-                        List<String> events = StreamSupport.stream(t.withArray("dependsOn").spliterator(), false)
-                                .map(JsonNode::asText)
-                                .filter(s->!event.equals(s)).collect(Collectors.toList());
-                        ArrayNode dependsOn = ((ObjectNode) t).putArray("dependsOn");
-                        events.forEach(dependsOn::add);
-                    });
-                }
-            };
-            active.stream().map(node->startNode(node, result)).forEach(t-> {
+            tasks.removeAll(schedule);
+            schedule.forEach(t -> service.submit(() -> {
                 try {
-                    t.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    String name = t.getOrDefault("name", "<undefined>").toString();
+                    logger.info(name + " starting");
+                    runNode(t, name, spark, sc, jobParameters);
+                    logger.info(name + " finished");
+                    reschedule(service, tasks, name, spark, sc, jobParameters);
+                } catch (Throwable e) {
+                    String onError = t.getOrDefault("onError", "<undefined>").toString();
+                    logger.error(onError, e);
+                    reschedule(service, tasks, onError, spark, sc, jobParameters);
                 }
-            });
-            tasks = newTasks;
+            }));
+            if (schedule.isEmpty()) {
+                service.shutdown();
+            }
         }
     }
 
-    private Thread startNode(JsonNode node, Consumer<String> result) {
-        String name = node.get("name").asText("<undefined>");
-        Thread thread = new Thread(()->{
-            try {
-                logger.info(name + " starting");
-                runNode(node);
-                logger.info(name + " finished");
-                result.accept(name);
-            }
-            catch (Throwable e) {
-                String onError = node.get("onError").asText("<undefined>");
-                logger.error(onError, e);
-                result.accept(onError);
-            }
-        });
-        thread.start();
-        return thread;
+    private void runNode(Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
     }
 
-    private void runNode(JsonNode node) {
-    }
-
-    private void runJobsInContext(String appName, List<ISparkJob> jobs) throws Exception {
+    private void executeInContext(String appName, ISparkExecutable executable) throws Exception {
         SparkSession spark = initBuilder(appName, SparkSession.builder()).getOrCreate();
         try {
             JavaSparkContext sc = new JavaSparkContext(spark.sparkContext());
@@ -139,19 +138,15 @@ public class SparkRuntime {
             }
             paramsEffective.putAll(params);
             Map<String, String> jobParameters = sc.broadcast(paramsEffective).getValue();
-            for (ISparkJob job: jobs) {
-                logger.info(String.format("Running job <%s>", job.getJobName()));
-                job.run(spark, sc, jobParameters);
-            }
-        }
-        finally {
+            executable.run(spark, sc, jobParameters);
+        } finally {
             spark.stop();
         }
     }
 
     private void readParamsFromFiles(JavaSparkContext sc, Map<String, String> params) throws IOException {
         try (FileSystem fs = FileSystem.get(sc.hadoopConfiguration())) {
-            for (String propertyFile: propertyFiles) {
+            for (String propertyFile : propertyFiles) {
                 logger.info(String.format("Load parameters from file <%s>", propertyFile));
                 try (FSDataInputStream is = fs.open(new Path(propertyFile))) {
                     Properties props = new Properties();
@@ -170,46 +165,40 @@ public class SparkRuntime {
                     throw new IllegalArgumentException("Master not specified for option -m");
                 }
                 master = args[i];
-            }
-            else if (arg.equals("-h")) {
+            } else if (arg.equals("-h")) {
                 hiveSupport = !hiveSupport;
-            }
-            else if (arg.equals("-p")) {
+            } else if (arg.equals("-p")) {
                 if (++i >= args.length) {
                     throw new IllegalArgumentException("Parameter not specified for option -p");
                 }
-                String param =args[i];
+                String param = args[i];
                 String[] parts = param.split("=", 2);
                 if (parts.length != 2) {
                     throw new IllegalArgumentException(String.format("Parameter must be <key=value>, but found <%s>", param));
                 }
                 params.put(parts[0], parts[1]);
-            }
-            else if (arg.equals("-c")) {
+            } else if (arg.equals("-c")) {
                 if (++i >= args.length) {
                     throw new IllegalArgumentException("Config not specified for option -c");
                 }
-                String param =args[i];
+                String param = args[i];
                 String[] parts = param.split("=", 2);
                 if (parts.length != 2) {
                     throw new IllegalArgumentException(String.format("Config must be <key=value>, but found <%s>", param));
                 }
                 config.put(parts[0], parts[1]);
-            }
-            else if (arg.equals("-f")) {
+            } else if (arg.equals("-f")) {
                 if (++i >= args.length) {
                     throw new IllegalArgumentException("Properties file not specified for option -f");
                 }
                 propertyFiles.add(args[i]);
-            }
-            else if (arg.equals("-w")) {
+            } else if (arg.equals("-w")) {
                 if (++i >= args.length) {
                     throw new IllegalArgumentException("Workflow file not specified for option -w");
                 }
                 String wfText = Utils.getResource(this.getClass().getClassLoader(), String.format("wf/%s.json", args[i]));
-                workflows.add((ObjectNode) new JsonMapper().readTree(wfText));
-            }
-            else {
+                workflows.add(new JsonMapper().readValue(wfText, Map.class));
+            } else {
                 ISparkJob job = registry.get(arg);
                 if (job == null) {
                     throw new IllegalArgumentException(String.format("Job <%s> not found", arg));
