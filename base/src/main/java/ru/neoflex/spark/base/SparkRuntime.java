@@ -99,15 +99,14 @@ public class SparkRuntime {
     }
 
     private void runWorkflow(String name, Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
-        Map<String, String> wfParameters = getWFParams(wf);
+        Map<String, String> wfParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
         wfParameters.putAll(jobParameters);
-        jobParameters = sc.broadcast(wfParameters).getValue();
         logger.info(String.format("Running workflow <%s>", name));
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
         tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList()))
                 .stream().collect(Collectors.toSet())));
         ExecutorService service = Executors.newCachedThreadPool();
-        reschedule(name, service, tasks, null, spark, sc, jobParameters);
+        reschedule(name, service, tasks, null, spark, sc, wfParameters);
         do {
             logger.info(String.format("Waiting for workflow <%s> termination", name));
         } while (service.awaitTermination(5, TimeUnit.SECONDS));
@@ -173,9 +172,9 @@ public class SparkRuntime {
         if (job == null) {
             throw new IllegalArgumentException(String.format("Job not found <%s>", jobName));
         }
-        Map<String, String> params = new HashMap<>(jobParameters);
-        params.putAll(Utils.getLocalParams(name, jobParameters));
-        job.run(name, spark, sc, params);
+        Map<String, String> params = (Map<String, String>) config.getOrDefault("params", new HashMap<>());
+        params.putAll(jobParameters);
+        job.run(name, spark, sc, sc.broadcast(params).getValue());
     }
 
     private void runNode(String s, Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
