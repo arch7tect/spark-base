@@ -17,7 +17,7 @@ import java.util.Map;
 public class SimpleJob2 extends SparkJobBase {
 
     @Override
-    public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+    public void run(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         spark.range(100).coalesce(3).createOrReplaceTempView("is");
         String sql = formatResource("sql/addName.sql", jobParameters);
         Dataset<Row> dfSql = spark.sql(sql);

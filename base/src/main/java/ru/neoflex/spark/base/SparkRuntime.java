@@ -1,7 +1,6 @@
 package ru.neoflex.spark.base;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -16,8 +15,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class SparkRuntime {
@@ -56,12 +53,12 @@ public class SparkRuntime {
         try {
             parseArgs(args);
             if (!workflows.isEmpty()) {
-                String appName = workflows.get(0).getOrDefault("name", "<undefined>").toString();
-                executeInContext(appName, (spark, sc, jobParameters) -> {
-                    for (Map<String, Object> wf : workflows) {
-                        runWorkflow(wf, spark, sc, jobParameters);
-                    }
-                });
+                for (Map<String, Object> wf : workflows) {
+                    String appName = wf.getOrDefault("name", "<undefined>").toString();
+                    executeInContext(appName, (name, spark, sc, jobParameters) -> {
+                        runWorkflow(name, wf, spark, sc, jobParameters);
+                    });
+                }
             } else {
                 if (jobs.isEmpty()) {
                     if (registry.size() == 1) {
@@ -71,33 +68,39 @@ public class SparkRuntime {
                 if (jobs.isEmpty()) {
                     throw new IllegalArgumentException("Job to run is not specified");
                 }
-                String appName = jobs.get(0).getJobName();
-                executeInContext(appName, (spark, sc, jobParameters) -> {
-                    for (ISparkJob job : jobs) {
-                        logger.info(String.format("Running job <%s>", job.getJobName()));
-                        job.run(spark, sc, jobParameters);
-                    }
-                });
+                for (ISparkJob job : jobs) {
+                    String appName = job.getJobName();
+                    logger.info(String.format("Running job <%s>", job.getJobName()));
+                    executeInContext(appName, (name, spark, sc, jobParameters) -> {
+                        runJob(name, job, spark, sc, jobParameters);
+                    });
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void runWorkflow(Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
-        String name = wf.getOrDefault("name", "<undefined>").toString();
+    private void runJob(String name, ISparkJob job, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+        job.run(name, spark, sc, sc.broadcast(jobParameters).getValue());
+    }
+
+    private void runWorkflow(String name, Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
+        Map<String, String> wfParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
+        wfParameters.putAll(jobParameters);
+        jobParameters = sc.broadcast(wfParameters).getValue();
         logger.info(String.format("Running workflow <%s>", name));
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
         tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList())).stream().collect(Collectors.toSet())));
         ExecutorService service = Executors.newCachedThreadPool();
-        reschedule(service, tasks, null, spark, sc, jobParameters);
+        reschedule(name, service, tasks, null, spark, sc, jobParameters);
         do {
             logger.info(String.format("Waiting for workflow <%s> termination", name));
         } while (service.awaitTermination(5, TimeUnit.SECONDS));
     }
 
-    private void reschedule(ExecutorService service, List<Map<String, Object>> tasks, String event,
-                            SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
+    private boolean reschedule(String name, ExecutorService service, List<Map<String, Object>> tasks, String event,
+                               SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
         synchronized (tasks) {
             if (event != null) {
                 tasks.forEach(t -> ((Set<String>) t.get("dependsSet")).remove(event));
@@ -108,24 +111,25 @@ public class SparkRuntime {
             tasks.removeAll(schedule);
             schedule.forEach(t -> service.submit(() -> {
                 try {
-                    String name = t.getOrDefault("name", "<undefined>").toString();
-                    logger.info(name + " starting");
-                    runNode(t, name, spark, sc, jobParameters);
-                    logger.info(name + " finished");
-                    reschedule(service, tasks, name, spark, sc, jobParameters);
+                    String taskName = t.getOrDefault("name", "<undefined>").toString();
+                    logger.info(name + "." + taskName + " starting");
+                    runNode(name, t, taskName, spark, sc, jobParameters);
+                    logger.info(name + "." + taskName + " finished");
+                    reschedule(name, service, tasks, taskName, spark, sc, jobParameters);
                 } catch (Throwable e) {
                     String onError = t.getOrDefault("onError", "<undefined>").toString();
                     logger.error(onError, e);
-                    reschedule(service, tasks, onError, spark, sc, jobParameters);
+                    if (!reschedule(name, service, tasks, onError, spark, sc, jobParameters)) {
+                        synchronized (tasks) { tasks.clear(); }
+                        service.shutdownNow();
+                    }
                 }
             }));
-            if (schedule.isEmpty()) {
-                service.shutdown();
-            }
+            return !schedule.isEmpty();
         }
     }
 
-    private void runNode(Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
+    private void runNode(String s, Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
     }
 
     private void executeInContext(String appName, ISparkExecutable executable) throws Exception {
@@ -137,8 +141,7 @@ public class SparkRuntime {
                 readParamsFromFiles(sc, paramsEffective);
             }
             paramsEffective.putAll(params);
-            Map<String, String> jobParameters = sc.broadcast(paramsEffective).getValue();
-            executable.run(spark, sc, jobParameters);
+            executable.run(appName, spark, sc, paramsEffective);
         } finally {
             spark.stop();
         }

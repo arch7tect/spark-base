@@ -17,7 +17,7 @@ import static org.apache.spark.sql.functions.expr;
 public class ExternalTableJob extends SparkJobBase {
 
     @Override
-    public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+    public void run(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         spark.range(10000000).createOrReplaceTempView("t1");
         String sql1 = formatResource("sql/addName.sql", "tempTable", "t1");
         Dataset<Row> dfSql1 = sql(spark, sql1);

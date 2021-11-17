@@ -90,7 +90,7 @@ public class UdfJob extends SparkJobBase {
     }
 
     @Override
-    public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+    public void run(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         spark.udf().register("r", udf((UDF0<Double>) Math::random, DataTypes.DoubleType)
                 .asNondeterministic());
         spark.udf().register("rate", udf(new ExchangeRateUDF(), DataTypes.createDecimalType(18, 8)));

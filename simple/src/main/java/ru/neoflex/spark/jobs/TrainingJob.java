@@ -12,7 +12,7 @@ import java.util.Map;
 @AutoService(ISparkJob.class)
 public class TrainingJob extends SparkJobBase {
     @Override
-    public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+    public void run(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         info("Hello from spark ${version}",
                 jobParameters, "version", spark.version());
         jobParameters.forEach((k, v) -> info("${key}: ${value}", "key", k, "value", v));

@@ -15,7 +15,7 @@ import java.util.stream.IntStream;
 public class SimpleJob extends SparkJobBase {
 
     @Override
-    public void run(SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
+    public void run(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws Exception {
         List<Integer> data = IntStream.range(0, 100).boxed().collect(Collectors.toList());
         Dataset<Row> df = spark.createDataset(data, Encoders.INT()).coalesce(3).toDF("id");
         String file = jobParameters.getOrDefault("file", "simple2.json");
