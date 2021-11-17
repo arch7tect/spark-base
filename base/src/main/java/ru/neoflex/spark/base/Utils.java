@@ -56,6 +56,12 @@ public class Utils {
         return replace(text, paramsEffective);
     }
 
+    public static Map<String, String> getLocalParams(String name, Map<String, String> params) {
+        String prefix = name + ".";
+        return params.entrySet().stream().filter(e->e.getKey().startsWith(prefix))
+                .collect(Collectors.toMap(e->e.getKey().substring(prefix.length()), Map.Entry::getValue));
+    }
+
     private static String getTypeDescription(DataType dataType) {
         if (dataType instanceof ArrayType) {
             return String.format("ARRAY<%s>", getTypeDescription(((ArrayType) dataType).elementType()));

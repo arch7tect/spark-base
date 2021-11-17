@@ -24,7 +24,7 @@ public class SparkRuntime {
     private final Map<String, String> params = new HashMap<>();
     private final Map<String, String> config = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
-    private final List<Map<String, Object>> workflows = new ArrayList<>();
+    private final Map<String, Map<String, Object>> workflows = new HashMap<>();
     private String master;
     private Boolean hiveSupport = false;
 
@@ -53,10 +53,10 @@ public class SparkRuntime {
         try {
             parseArgs(args);
             if (!workflows.isEmpty()) {
-                for (Map<String, Object> wf : workflows) {
-                    String appName = wf.getOrDefault("name", "<undefined>").toString();
+                for (Map.Entry<String, Map<String, Object>> wf: workflows.entrySet()) {
+                    String appName = wf.getKey();
                     executeInContext(appName, (name, spark, sc, jobParameters) -> {
-                        runWorkflow(name, wf, spark, sc, jobParameters);
+                        runWorkflow(name, wf.getValue(), spark, sc, jobParameters);
                     });
                 }
             } else {
@@ -85,13 +85,27 @@ public class SparkRuntime {
         job.run(name, spark, sc, sc.broadcast(jobParameters).getValue());
     }
 
-    private void runWorkflow(String name, Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
+    private Map<String, String> getWFParams(Map<String, Object> wf) {
         Map<String, String> wfParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
+        List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
+        for (Map<String, Object> task: tasks) {
+            String name = task.getOrDefault("name", "<undefined>").toString();
+            Map<String, String> taskParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
+            for (String key: taskParameters.keySet()) {
+                wfParameters.put(name + "." + key, taskParameters.get(key));
+            }
+        }
+        return wfParameters;
+    }
+
+    private void runWorkflow(String name, Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
+        Map<String, String> wfParameters = getWFParams(wf);
         wfParameters.putAll(jobParameters);
         jobParameters = sc.broadcast(wfParameters).getValue();
         logger.info(String.format("Running workflow <%s>", name));
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
-        tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList())).stream().collect(Collectors.toSet())));
+        tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList()))
+                .stream().collect(Collectors.toSet())));
         ExecutorService service = Executors.newCachedThreadPool();
         reschedule(name, service, tasks, null, spark, sc, jobParameters);
         do {
@@ -113,7 +127,31 @@ public class SparkRuntime {
                 try {
                     String taskName = t.getOrDefault("name", "<undefined>").toString();
                     logger.info(name + "." + taskName + " starting");
-                    runNode(name, t, taskName, spark, sc, jobParameters);
+                    String type = t.getOrDefault("type", "<undefined>").toString();
+                    Map<String, Object> config = (Map<String, Object>) t.getOrDefault("config", new HashMap<>());
+                    if ("Dummy".equals(type)) {
+                        // Dummy
+                    }
+                    else if ("Exit".equals(type)) {
+                        synchronized (tasks) { tasks.clear(); }
+                        service.shutdown();
+                    }
+                    else if ("Kill".equals(type)) {
+                        String message = config.getOrDefault("message", "Kill").toString();
+                        logger.error(message);
+                        synchronized (tasks) { tasks.clear(); }
+                        service.shutdownNow();
+                    }
+                    else if ("SparkJob".equals(type)) {
+                        runSparkJobTask(name, spark, sc, jobParameters, config);
+                    }
+                    else if ("Workflow".equals(type)) {
+                    }
+                    else {
+                        logger.error(String.format("Unknown node type <%s> for node <%s>", type, name));
+                        synchronized (tasks) { tasks.clear(); }
+                        service.shutdownNow();
+                    }
                     logger.info(name + "." + taskName + " finished");
                     reschedule(name, service, tasks, taskName, spark, sc, jobParameters);
                 } catch (Throwable e) {
@@ -127,6 +165,17 @@ public class SparkRuntime {
             }));
             return !schedule.isEmpty();
         }
+    }
+
+    private void runSparkJobTask(String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters, Map<String, Object> config) throws Exception {
+        String jobName = config.getOrDefault("jobName", "<undefined>").toString();
+        ISparkJob job = registry.get(jobName);
+        if (job == null) {
+            throw new IllegalArgumentException(String.format("Job not found <%s>", jobName));
+        }
+        Map<String, String> params = new HashMap<>(jobParameters);
+        params.putAll(Utils.getLocalParams(name, jobParameters));
+        job.run(name, spark, sc, params);
     }
 
     private void runNode(String s, Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
@@ -200,7 +249,7 @@ public class SparkRuntime {
                     throw new IllegalArgumentException("Workflow file not specified for option -w");
                 }
                 String wfText = Utils.getResource(this.getClass().getClassLoader(), String.format("wf/%s.json", args[i]));
-                workflows.add(new JsonMapper().readValue(wfText, Map.class));
+                workflows.put(args[i], new JsonMapper().readValue(wfText, Map.class));
             } else {
                 ISparkJob job = registry.get(arg);
                 if (job == null) {
