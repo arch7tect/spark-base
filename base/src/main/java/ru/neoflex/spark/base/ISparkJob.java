@@ -7,6 +7,6 @@ import java.io.Closeable;
 import java.io.Serializable;
 import java.util.Map;
 
-public interface ISparkJob extends ISparkExecutable, Closeable {
+public interface ISparkJob extends ISparkExecutable {
     String getJobName();
 }
