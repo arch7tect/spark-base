@@ -1,14 +1,12 @@
 {
-  "params": {
-  },
   "tasks": [
     {
       "name": "Start",
-      "type": "Dummy"
+      "taskType": "Dummy"
     },
     {
       "name": "UDF",
-      "type": "SparkJob",
+      "taskType": "SparkJob",
       "dependsOn": ["Start"],
       "onError": "Error",
       "config": {
@@ -20,7 +18,7 @@
     },
     {
       "name": "Training",
-      "type": "SparkJob",
+      "taskType": "SparkJob",
       "dependsOn": ["Start"],
       "onError": "Error",
       "config": {
@@ -31,13 +29,21 @@
       }
     },
     {
+      "name": "Simple",
+      "taskType": "DAG",
+      "dependsOn": ["UDF", "Training"],
+      "config": {
+        "dagName": "Simple"
+      }
+    },
+    {
       "name": "End",
-      "type": "Exit",
-      "dependsOn": ["UDF", "Training"]
+      "taskType": "Exit",
+      "dependsOn": ["Simple"]
     },
     {
       "name": "Kill",
-      "type": "Kill",
+      "taskType": "Kill",
       "dependsOn": ["Error"],
       "config": {
         "message": "WF Failure"

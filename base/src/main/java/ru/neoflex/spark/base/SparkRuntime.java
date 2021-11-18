@@ -24,7 +24,7 @@ public class SparkRuntime {
     private final Map<String, String> params = new HashMap<>();
     private final Map<String, String> config = new HashMap<>();
     private final Map<String, ISparkJob> registry = new HashMap<>();
-    private final Map<String, Map<String, Object>> workflows = new HashMap<>();
+    private final List<String> dags = new ArrayList<>();
     private String master;
     private Boolean hiveSupport = false;
 
@@ -52,11 +52,10 @@ public class SparkRuntime {
     public void run(String[] args) {
         try {
             parseArgs(args);
-            if (!workflows.isEmpty()) {
-                for (Map.Entry<String, Map<String, Object>> wf: workflows.entrySet()) {
-                    String appName = wf.getKey();
-                    executeInContext(appName, (name, spark, sc, jobParameters) -> {
-                        runWorkflow(name, wf.getValue(), spark, sc, jobParameters);
+            if (!dags.isEmpty()) {
+                for (String dagName: dags) {
+                    executeInContext(dagName, (name, spark, sc, jobParameters) -> {
+                        runDAG(name, spark, sc, jobParameters);
                     });
                 }
             } else {
@@ -85,30 +84,16 @@ public class SparkRuntime {
         job.run(name, spark, sc, sc.broadcast(jobParameters).getValue());
     }
 
-    private Map<String, String> getWFParams(Map<String, Object> wf) {
-        Map<String, String> wfParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
-        List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
-        for (Map<String, Object> task: tasks) {
-            String name = task.getOrDefault("name", "<undefined>").toString();
-            Map<String, String> taskParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
-            for (String key: taskParameters.keySet()) {
-                wfParameters.put(name + "." + key, taskParameters.get(key));
-            }
-        }
-        return wfParameters;
-    }
-
-    private void runWorkflow(String name, Map<String, Object> wf, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
-        Map<String, String> wfParameters = (Map<String, String>) wf.getOrDefault("params", new HashMap<>());
-        wfParameters.putAll(jobParameters);
-        logger.info(String.format("Running workflow <%s>", name));
-        List<Map<String, Object>> tasks = (List<Map<String, Object>>) wf.getOrDefault("tasks", Collections.emptyList());
+    private void runDAG(String dagName, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) throws InterruptedException {
+        logger.info(String.format("Running DAG <%s>", dagName));
+        Map<String, Object> dag = loadDAG(dagName);
+        List<Map<String, Object>> tasks = (List<Map<String, Object>>) dag.getOrDefault("tasks", Collections.emptyList());
         tasks.forEach(t -> t.put("dependsSet", ((List<String>) t.getOrDefault("dependsOn", Collections.emptyList()))
                 .stream().collect(Collectors.toSet())));
         ExecutorService service = Executors.newCachedThreadPool();
-        reschedule(name, service, tasks, null, spark, sc, wfParameters);
+        reschedule(dagName, service, tasks, null, spark, sc, jobParameters);
         do {
-            logger.info(String.format("Waiting for workflow <%s> termination", name));
+            logger.info(String.format("Waiting for DAG <%s> termination", dagName));
         } while (service.awaitTermination(5, TimeUnit.SECONDS));
     }
 
@@ -126,28 +111,30 @@ public class SparkRuntime {
                 try {
                     String taskName = t.getOrDefault("name", "<undefined>").toString();
                     logger.info(name + "." + taskName + " starting");
-                    String type = t.getOrDefault("type", "<undefined>").toString();
+                    String taskType = t.getOrDefault("taskType", "<undefined>").toString();
                     Map<String, Object> config = (Map<String, Object>) t.getOrDefault("config", new HashMap<>());
-                    if ("Dummy".equals(type)) {
+                    if ("Dummy".equals(taskType)) {
                         // Dummy
                     }
-                    else if ("Exit".equals(type)) {
+                    else if ("Exit".equals(taskType)) {
                         synchronized (tasks) { tasks.clear(); }
                         service.shutdown();
                     }
-                    else if ("Kill".equals(type)) {
+                    else if ("Kill".equals(taskType)) {
                         String message = config.getOrDefault("message", "Kill").toString();
                         logger.error(message);
                         synchronized (tasks) { tasks.clear(); }
                         service.shutdownNow();
                     }
-                    else if ("SparkJob".equals(type)) {
+                    else if ("SparkJob".equals(taskType)) {
                         runSparkJobTask(name, spark, sc, jobParameters, config);
                     }
-                    else if ("Workflow".equals(type)) {
+                    else if ("DAG".equals(taskType)) {
+                        String dagName = config.getOrDefault("dagName", "<undefined>").toString();
+                        runDAG(dagName, spark, sc, jobParameters);
                     }
                     else {
-                        logger.error(String.format("Unknown node type <%s> for node <%s>", type, name));
+                        logger.error(String.format("Unknown node taskType <%s> for node <%s>", taskType, name));
                         synchronized (tasks) { tasks.clear(); }
                         service.shutdownNow();
                     }
@@ -175,9 +162,6 @@ public class SparkRuntime {
         Map<String, String> params = (Map<String, String>) config.getOrDefault("params", new HashMap<>());
         params.putAll(jobParameters);
         job.run(name, spark, sc, sc.broadcast(params).getValue());
-    }
-
-    private void runNode(String s, Map<String, Object> t, String name, SparkSession spark, JavaSparkContext sc, Map<String, String> jobParameters) {
     }
 
     private void executeInContext(String appName, ISparkExecutable executable) throws Exception {
@@ -243,12 +227,11 @@ public class SparkRuntime {
                     throw new IllegalArgumentException("Properties file not specified for option -f");
                 }
                 propertyFiles.add(args[i]);
-            } else if (arg.equals("-w")) {
+            } else if (arg.equals("-d")) {
                 if (++i >= args.length) {
-                    throw new IllegalArgumentException("Workflow file not specified for option -w");
+                    throw new IllegalArgumentException("DAG file not specified for option -d");
                 }
-                String wfText = Utils.getResource(this.getClass().getClassLoader(), String.format("wf/%s.json", args[i]));
-                workflows.put(args[i], new JsonMapper().readValue(wfText, Map.class));
+                dags.add(args[i]);
             } else {
                 ISparkJob job = registry.get(arg);
                 if (job == null) {
@@ -256,6 +239,15 @@ public class SparkRuntime {
                 }
                 jobs.add(job);
             }
+        }
+    }
+
+    private Map<String, Object> loadDAG(String name) {
+        String dagText = Utils.getResource(this.getClass().getClassLoader(), String.format("dags/%s.json", name));
+        try {
+            return new JsonMapper().readValue(dagText, Map.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
         }
     }
 }
